@@ -15,8 +15,10 @@
  */
 package com.alibaba.cloud.ai.dataagent.mapper;
 
-import com.alibaba.cloud.ai.dataagent.service.MySqlContainerConfiguration;
 import com.alibaba.cloud.ai.dataagent.entity.*;
+import com.alibaba.cloud.ai.dataagent.service.MySqlContainerConfiguration;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
@@ -24,9 +26,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 import org.springframework.test.context.TestPropertySource;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * Mappers 单元测试类
@@ -73,7 +72,6 @@ public class MappersTest {
 			.tags("t")
 			.createTime(LocalDateTime.now().withNano(0))
 			.updateTime(LocalDateTime.now().withNano(0))
-			.humanReviewEnabled(0)
 			.build();
 		agentMapper.insert(agent);
 		return agent.getId();
@@ -98,7 +96,6 @@ public class MappersTest {
 			.tags("test")
 			.createTime(LocalDateTime.now().withNano(0))
 			.updateTime(LocalDateTime.now().withNano(0))
-			.humanReviewEnabled(0)
 			.build();
 		int insert = agentMapper.insert(agent);
 		Assertions.assertEquals(1, insert);
@@ -161,7 +158,7 @@ public class MappersTest {
 	public void testSemanticModelCrud() {
 		Long agentId = createAgent("semantic-holder");
 		SemanticModel m = new SemanticModel();
-		m.setAgentId(Math.toIntExact(agentId));
+		m.setAgentId(agentId);
 		m.setDatasourceId(1); // 添加数据源ID
 		m.setTableName("test_table"); // 添加表名
 		m.setColumnName("origin_tc");
@@ -175,7 +172,7 @@ public class MappersTest {
 		Assertions.assertEquals(1, ins);
 		Assertions.assertNotNull(m.getId());
 
-		List<SemanticModel> query = semanticModelMapper.selectByAgentId(Long.valueOf(m.getAgentId()));
+		List<SemanticModel> query = semanticModelMapper.selectByAgentId(m.getAgentId());
 		Assertions.assertTrue(query.stream().anyMatch(x -> x.getId().equals(m.getId())));
 
 		semanticModelMapper.disableById(m.getId());

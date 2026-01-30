@@ -13,31 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.dto;
+package com.alibaba.cloud.ai.dataagent.exception;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
 
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class GraphRequest {
+public class InvalidInputException extends RuntimeException {
 
-	private String agentId;
+	@Getter
+	private Object data;
 
-	private String threadId;
+	public InvalidInputException(String message) {
+		super(message);
+	}
 
-	private String query;
-
-	private boolean humanFeedback;
-
-	private String humanFeedbackContent;
-
-	private boolean rejectedPlan;
-
-	private boolean nl2sqlOnly;
+	public InvalidInputException(String message, Object data) {
+		super(message);
+		this.data = data;
+	}
 
 }

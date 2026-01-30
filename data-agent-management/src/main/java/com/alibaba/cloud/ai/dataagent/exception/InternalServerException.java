@@ -13,21 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.dto.prompt;
+package com.alibaba.cloud.ai.dataagent.exception;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+public class InternalServerException extends RuntimeException {
 
-// 对应 模板intent-recognition.txt的输出
-@Data
-@NoArgsConstructor
-public class IntentRecognitionOutputDTO {
-
-	// 意图分类结果，值为"《闲聊或无关指令》"或"《可能的数据分析请求》"
-	@JsonProperty("classification")
-	@JsonPropertyDescription("意图分类结果，值为：《闲聊或无关指令》或《可能的数据分析请求》")
-	private String classification;
+	public InternalServerException(String message) {
+		super(message);
+	}
 
 }

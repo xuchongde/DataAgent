@@ -64,10 +64,6 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("planner"));
 	}
 
-	public static PromptTemplate getReportGeneratorPromptTemplate() {
-		return new PromptTemplate(PromptLoader.loadPrompt("report-generator"));
-	}
-
 	public static PromptTemplate getReportGeneratorPlainPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("report-generator-plain"));
 	}
@@ -94,6 +90,10 @@ public class PromptConstant {
 
 	public static PromptTemplate getJsonFixPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("json-fix"));
+	}
+
+	public static PromptTemplate getDataViewAnalyzePromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("data-view-analyze"));
 	}
 
 }
