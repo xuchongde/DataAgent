@@ -481,6 +481,7 @@
       };
 
       const sendMessage = async () => {
+        console.log(userInput.value);
         if (!userInput.value.trim()) {
           ElMessage.warning('请输入请求消息！');
           return;

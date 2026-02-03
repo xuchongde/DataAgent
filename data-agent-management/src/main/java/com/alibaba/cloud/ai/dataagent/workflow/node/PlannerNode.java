@@ -53,7 +53,7 @@ public class PlannerNode implements NodeAction {
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 		// 是否为NL2SQL模式
 		Boolean onlyNl2sql = state.value(IS_ONLY_NL2SQL, false);
-
+		log.info("onlyNl2sql {}",onlyNl2sql);
 		Flux<ChatResponse> flux = onlyNl2sql ? handleNl2SqlOnly() : handlePlanGenerate(state);
 
 		Flux<ChatResponse> chatResponseFlux = Flux.concat(
