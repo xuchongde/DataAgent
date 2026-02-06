@@ -164,9 +164,9 @@ public class ReportTemplateUtil {
 
 			<!-- 渲染目标容器 -->
 			<div id="render-target" class="markdown-body"></div>
-
+			
 			</div> <!-- container 结束 -->
-
+			
 			<script>
 			  window.onload = function() {
 			      // 0. 安全检查
@@ -175,38 +175,66 @@ public class ReportTemplateUtil {
 			          document.getElementById('raw-markdown').style.display = 'block';
 			          return;
 			      }
-
+			
 			      // 1. 获取内容
 			      const rawDiv = document.getElementById('raw-markdown');
 			      if (!rawDiv) return;
 			      const rawText = rawDiv.innerText;
-
+			
 			      // 2. 解析 Markdown
 			      const renderer = new marked.Renderer();
-
+			
 			      renderer.code = function(code, language) {
-			          if (language === 'echarts' || language === 'json') {
+			          // 专门处理 echarts 类型的代码块，用于图表渲染
+			          if (language === 'echarts') {
 			              const id = 'chart_' + Math.random().toString(36).substr(2, 9);
-			              // 使用 encodeURIComponent 保存原始代码串
 			              return '<div id="' + id + '" class="chart-box" data-option="' + encodeURIComponent(code) + '"></div>';
 			          }
-			          return '<pre><code class="language-' + language + '">' + code + '</code></pre>';
+			          // 对于 JSON 代码块，检查是否包含 echarts 配置的关键特征
+			          // 如果是包含 title、xAxis、yAxis、series 等字段，则渲染为图表
+			          if (language === 'json') {
+			              try {
+			                  // 检查 JSON 是否包含 ECharts 关键字段
+			                  const parsed = JSON.parse(code);
+			                  if (parsed.title && parsed.xAxis && parsed.yAxis && parsed.series) {
+			                      const id = 'chart_' + Math.random().toString(36).substr(2, 9);
+			                      return '<div id="' + id + '" class="chart-box" data-option="' + encodeURIComponent(code) + '"></div>';
+			                  }
+			              } catch(e) {
+			                  // 如果 JSON 解析失败，仍然显示为普通 JSON 代码块
+			              }
+			              // 检查是否是数据表格类型的 JSON
+			              if (code.includes('"column"') && code.includes('"data"')) {
+			                  try {
+			                      const parsed = JSON.parse(code);
+			                      if (parsed.column && parsed.data && Array.isArray(parsed.data)) {
+			                          return createJsonDataTable(parsed);
+			                      }
+			                  } catch(e) {
+			                      // 如果解析失败，继续作为普通 JSON 显示
+			                  }
+			              }
+			              // 默认返回普通 JSON 代码块
+			              return '<pre><code class="language-json">' + escapeHtml(code) + '</code></pre>';
+			          }
+			          // 其他语言类型按默认处理
+			          return '<pre><code class="language-' + language + '">' + escapeHtml(code) + '</code></pre>';
 			      };
-
+			
 			      document.getElementById('render-target').innerHTML = marked.parse(rawText, { renderer: renderer });
-
+			
 			      // 3. 渲染图表
 			      if (typeof echarts !== 'undefined') {
 			          document.querySelectorAll('.chart-box').forEach(box => {
 			              try {
 			                  // 解码数据
 			                  const code = decodeURIComponent(box.getAttribute('data-option'));
-
+			
 			                  // 🌟 核心修改：使用 new Function 替代 JSON.parse
 			                  // 这样可以兼容 LLM 生成的 JS 函数 (formatter: function()...)
 			                  // 注意：这就要求 LLM 生成的是 JS 对象字面量，而不仅仅是 JSON (通常 LLM 都会这么做)
 			                  const option = new Function('return ' + code)();
-
+			
 			                  const myChart = echarts.init(box);
 			                  myChart.setOption(option);
 			                  window.addEventListener('resize', () => myChart.resize());
@@ -220,6 +248,40 @@ public class ReportTemplateUtil {
 			          });
 			      }
 			  };
+			  // 辅助函数：转义 HTML 特殊字符
+			  function escapeHtml(text) {
+			      var map = {
+			          '&': '&amp;',
+			          '<': '&lt;',
+			          '>': '&gt;',
+			          '"': '&quot;',
+			          "'": '&#039;'
+			      };
+			      return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+			  }
+			  // 辅助函数：将 JSON 数据转换为 HTML 表格
+			  function createJsonDataTable(jsonData) {
+			      if (!jsonData.column || !jsonData.data || !Array.isArray(jsonData.data)) {
+			          return '<pre><code class="language-json">' + escapeHtml(JSON.stringify(jsonData, null, 2)) + '</code></pre>';
+			      }
+			      let tableHtml = '<table class="json-data-table"><thead><tr>';
+			      // 创建表头
+			      jsonData.column.forEach(col => {
+			          tableHtml += '<th>' + escapeHtml(col) + '</th>';
+			      });
+			      tableHtml += '</tr></thead><tbody>';
+			      // 创建表格行
+			      jsonData.data.forEach(row => {
+			          tableHtml += '<tr>';
+			          jsonData.column.forEach(col => {
+			              const value = row[col] !== undefined ? row[col] : '';
+			              tableHtml += '<td>' + escapeHtml(String(value)) + '</td>';
+			          });
+			          tableHtml += '</tr>';
+			      });
+			      tableHtml += '</tbody></table>';
+			      return tableHtml;
+			  }
 			</script>
 			</body>
 			</html>

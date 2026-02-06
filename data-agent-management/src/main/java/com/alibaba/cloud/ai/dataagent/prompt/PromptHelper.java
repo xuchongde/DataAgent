@@ -246,9 +246,10 @@ public class PromptHelper {
 	 * 构建查询处理提示词
 	 * @param multiTurn 多轮对话历史
 	 * @param latestQuery 最新用户输入
+	 * @param standaloneQuery 标准化查询（知识召回时用的查询语句）
 	 * @return 查询处理提示词
 	 */
-	public static String buildQueryEnhancePrompt(String multiTurn, String latestQuery, String evidence) {
+	public static String buildQueryEnhancePrompt(String multiTurn, String latestQuery, String evidence,String standaloneQuery) {
 		Map<String, Object> params = new HashMap<>();
 		params.put("multi_turn", multiTurn != null ? multiTurn : "(无)");
 		params.put("latest_query", latestQuery);
@@ -256,10 +257,16 @@ public class PromptHelper {
 			params.put("evidence", "无");
 		else
 			params.put("evidence", evidence);
+
+		if (StringUtils.isEmpty(standaloneQuery))
+			params.put("rewriteQuery", "无");
+		else
+			params.put("rewriteQuery", standaloneQuery);
 		params.put("current_time_info", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 		BeanOutputConverter<QueryEnhanceOutputDTO> beanOutputConverter = new BeanOutputConverter<>(
 				QueryEnhanceOutputDTO.class);
 		params.put("format", beanOutputConverter.getFormat());
+		logParams(params);
 		return PromptConstant.getQueryEnhancementPromptTemplate().render(params);
 	}
 
@@ -322,6 +329,16 @@ public class PromptHelper {
 			// 如果模板渲染失败，直接返回原始内容
 			return optimizationPrompt;
 		}
+	}
+
+	private static void logParams(Map<String, Object> params){
+		if(params==null || params.size()==0){
+			return;
+		}
+		params.keySet().forEach(key->{
+			Object value = params.get(key);
+			System.out.printf("key="+key+",value="+value);
+		});
 	}
 
 }

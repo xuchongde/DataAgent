@@ -31,4 +31,11 @@ public interface ChatMessageService {
 	 */
 	ChatMessage saveMessage(ChatMessage message);
 
+	/**
+	 * 倒数第二个用户输入消息
+	 * @param sessionId
+	 * @return
+	 */
+	ChatMessage findSecondLastUserChatBySessionId(String sessionId);
+
 }

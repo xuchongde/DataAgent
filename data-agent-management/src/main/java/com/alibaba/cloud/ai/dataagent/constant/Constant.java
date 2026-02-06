@@ -156,4 +156,8 @@ public final class Constant {
 
 	public static final String STREAM_EVENT_ERROR = "error";
 
+	//chat_message sessionId
+	public static final String SESSION_ID = "SESSION_ID";
+	//EvidenceRecallNode 改写后的查询，作为QueryEnhanceNode的输入，canonicalQuery输出会更准确
+	public static final String REWRIT_EQUERY = "REWRIT_EQUERY";
 }

@@ -19,7 +19,18 @@ spring:
       encoding: utf-8
   ai:
     vectorstore:
-      type: simple
+      type: elasticsearch # elasticsearch,simple
+      ##向量数据库用elasticsearch时的配置信息
+      elasticsearch:
+        uris: http://127.0.0.1:9200
+        index-name: dataagent  #必须与 curl 创建的索引名严格一致
+        embedding-dimensions: 1024
+        validate-index: false
+        similarity: cosine
+        initialize-schema: false # 防止SpringAI覆盖int8_hnsw配置
+        connection-timeout: 5000  # 新增连接超时(毫秒)
+        socket-timeout: 10000     # 新增Socket超时(毫秒)
+      ##向量数据库用elasticsearch时的配置信息结束
     alibaba:
       data-agent:
         vector-store:
@@ -30,6 +41,11 @@ spring:
         llm-service-type: stream
         code-executor:
           # 运行Python代码的环境（生产环境建议使用docker，不建议使用local）
+          type: local
+          local:
+            python-path: C:\Users\uf202488\AppData\Local\Programs\Python\Python312\
+            timeout: 300000
+            work-dir: C:\mnt\tmp\
           code-pool-executor: local
           # Python执行的最大重试次数
           python-max-tries-count: 5

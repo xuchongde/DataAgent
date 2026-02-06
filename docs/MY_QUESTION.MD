@@ -45,6 +45,7 @@ agent和数据源中的表绑定后
 IntentRecognitionNode，实现NodeAction，根据输入，+提示词：intent-recognition，调用大模型，推理用户问题是否问数还是闲聊
 返回classification（大模型返回值），把结果写入INTENT_RECOGNITION_NODE_OUTPUT边中
 classification：值为"《闲聊或无关指令》"或"《可能的数据分析请求》"
+```java
 public class IntentRecognitionNode implements NodeAction {
 	private final LlmService llmService;
 	private final JsonParseUtil jsonParseUtil;
@@ -79,9 +80,9 @@ public class IntentRecognitionNode implements NodeAction {
 		return Map.of(INTENT_RECOGNITION_NODE_OUTPUT, generator);
 	}
 }
-
+```
 IntentRecognitionDispatcher，implements EdgeAction，意图识别结果分发器（边）
-
+```java
 public class IntentRecognitionDispatcher implements EdgeAction {
 	@Override
 	public String apply(OverAllState state) throws Exception {
@@ -108,6 +109,7 @@ public class IntentRecognitionDispatcher implements EdgeAction {
 		}
 	}
 }
+```
 ### 3.2 问题重写 EvidenceRecallNode
 EvidenceRecallNode，查询重写。
 1.从多轮对话和用户最新输入，调用大模型，重写用户最新输入的问题，提示词evidence-query-rewrite
@@ -215,6 +217,10 @@ python-analyze
 报告生成
 report-generator-plain
 END
+
+# 增强
+## 向量存储使用es
+
 
 
 

@@ -42,7 +42,7 @@ spring-ai-alibaba-nl2sql-web-ui/
 ```bash
 # 使用 npm
 npm install
-
+或 npx pnpm install
 # 或使用 yarn
 yarn install
 ```
@@ -52,9 +52,10 @@ yarn install
 ```bash
 # 使用 npm
 npm run dev
-
+或 npx pnpm run dev
 # 或使用 yarn
 yarn dev
+
 ```
 
 启动成功后，浏览器会自动打开 http://localhost:3000

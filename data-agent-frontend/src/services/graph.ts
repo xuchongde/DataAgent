@@ -22,6 +22,7 @@ export interface GraphRequest {
   humanFeedbackContent?: string;
   rejectedPlan: boolean;
   nl2sqlOnly: boolean;
+  sessionId: string;
 }
 
 export interface GraphNodeResponse {
@@ -71,7 +72,7 @@ class GraphService {
     params.append('humanFeedback', request.humanFeedback.toString());
     params.append('rejectedPlan', request.rejectedPlan.toString());
     params.append('nl2sqlOnly', request.nl2sqlOnly.toString());
-
+    params.append('sessionId',request.sessionId);
     if (request.humanFeedbackContent) {
       params.append('humanFeedbackContent', request.humanFeedbackContent);
     }

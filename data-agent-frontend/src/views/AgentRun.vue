@@ -613,6 +613,7 @@
             rejectedPlan: false,
             humanFeedbackContent: null,
             threadId: sessionState.lastRequest?.threadId || null,
+            sessionId: currentSession.value.id
           };
 
           userInput.value = '';

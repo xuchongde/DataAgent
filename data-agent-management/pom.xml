@@ -222,6 +222,21 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-vector-store-elasticsearch</artifactId>
+            <exclusions>
+                <!-- 强制排除所有旧版 ES 客户端 -->
+                <exclusion>
+                    <groupId>co.elastic.clients</groupId>
+                    <artifactId>elasticsearch-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.elasticsearch.client</groupId>
+                    <artifactId>elasticsearch-rest-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.elasticsearch</groupId>
+                    <artifactId>elasticsearch</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- 显式添加Elasticsearch Java客户端依赖以解决DenseVectorSimilarity类缺失问题 -->
         <dependency>

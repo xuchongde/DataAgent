@@ -16,12 +16,14 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
+import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
 import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.EvidenceQueryRewriteDTO;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
+import com.alibaba.cloud.ai.dataagent.service.chat.ChatMessageService;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.util.*;
@@ -31,6 +33,7 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
@@ -38,10 +41,7 @@ import org.springframework.util.Assert;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
@@ -58,6 +58,8 @@ public class EvidenceRecallNode implements NodeAction {
 
 	private final AgentKnowledgeMapper agentKnowledgeMapper;
 
+	private final ChatMessageService chatMessageService;
+
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
@@ -70,7 +72,24 @@ public class EvidenceRecallNode implements NodeAction {
 		log.debug("Agent ID: {}", agentId);
 
 		String multiTurn = StateUtil.getStringValue(state, MULTI_TURN_CONTEXT, "(无)");
-
+		//如果有澄清，需要把用户上一次的input+当前的input（澄清内容）一起给模型
+		String feasibility = StateUtil.getStringValue(state, FEASIBILITY_ASSESSMENT_NODE_OUTPUT,"");
+		if(StringUtils.isNotBlank(feasibility) && feasibility.contains("《需要澄清》")){
+			//获取当前session对话用户最后的提问
+			String sessionId = StateUtil.getStringValue(state, SESSION_ID);
+			if(StringUtils.isNotBlank(sessionId)){
+				ChatMessage message = chatMessageService.findSecondLastUserChatBySessionId(sessionId);
+				if(Objects.nonNull(message)){
+					if("(无)".equals(multiTurn)){
+						multiTurn = message.getContent();
+					}else{
+						if(!multiTurn.contains(message.getContent())) {
+							multiTurn += "。" + message.getContent();
+						}
+					}
+				}
+			}
+		}
 		// 构建查询重写提示
 		// 不需要扩展为多个子查询，因为此时LLM不能理解不同公司的个性化业务知识，比如 PV,KMV等专业名词，扩展反而引入噪音。
 		String prompt = PromptHelper.buildEvidenceQueryRewritePrompt(multiTurn, question);
@@ -129,7 +148,7 @@ public class EvidenceRecallNode implements NodeAction {
 			outputEvidenceContent(retrievalResult.allDocuments(), sink);
 
 			// 返回结果
-			return Map.of(EVIDENCE, evidence);
+			return Map.of(EVIDENCE, evidence,REWRIT_EQUERY,standaloneQuery);
 		}
 		catch (Exception e) {
 			log.error("Error occurred while getting evidences", e);

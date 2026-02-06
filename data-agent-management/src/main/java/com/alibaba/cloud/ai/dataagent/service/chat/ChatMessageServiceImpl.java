@@ -21,6 +21,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -45,4 +46,13 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 		return message;
 	}
 
+	@Override
+	public ChatMessage findSecondLastUserChatBySessionId(String sessionId) {
+		//升序的
+		List<ChatMessage> messages = chatMessageMapper.selectBySessionIdAndRole(sessionId, "user");
+		if(messages==null || messages.size()==0 || messages.size()==1){
+			return null;
+		}
+		return messages.get(messages.size() - 2);
+	}
 }
