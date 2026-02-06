@@ -35,9 +35,9 @@ import java.util.List;
 public class DisplayStyleBO {
 
 	/**
-	 * 图表类型，如：table, bar, line, pie等
+	 * 图表类型，如：table, bar, line, pie, scatter等
 	 */
-	@JsonPropertyDescription("图表类型，取值范围：table、 bar、 line、 pie等")
+	@JsonPropertyDescription("图表类型，取值范围：table、 bar、 line、 pie、scatter等")
 	private String type;
 
 	/**

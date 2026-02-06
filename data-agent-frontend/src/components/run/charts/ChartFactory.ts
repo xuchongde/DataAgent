@@ -18,6 +18,8 @@ import { BaseChart, ChartTypes } from './BaseChart';
 import { PieChart } from './PieChart';
 import { BarChart } from './BarChart';
 import { LineChart } from './LineChart';
+import { ScatterChart } from './ScatterChart';
+
 
 export class ChartFactory {
   static createChart(chartType: ChartTypes, id: string, name: string): BaseChart | null {
@@ -29,6 +31,8 @@ export class ChartFactory {
         return new BarChart(id, name);
       case 'line':
         return new LineChart(id, name);
+      case 'scatter':
+        return new ScatterChart(id, name);
       default:
         console.error(`Unsupported chart type: ${chartType}`);
         return null;

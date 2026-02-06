@@ -24,7 +24,7 @@ export interface ChartData {
   [key: string]: any;
 }
 
-export type ChartTypes = 'table' | 'bar' | 'column' | 'line' | 'pie';
+export type ChartTypes = 'table' | 'bar' | 'column' | 'line' | 'pie' | 'scatter';
 
 // 基础颜色面板，作为扩展颜色数组的前6个色值
 export const COLOR_PANEL = ['#5584FF', '#36CBCB', '#4ECB74', '#FAD337', '#F2637B', '#975FEE'];
