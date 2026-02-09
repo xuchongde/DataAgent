@@ -49,8 +49,7 @@ public class GraphController {
 			@RequestParam(value = "humanFeedback", required = false) boolean humanFeedback,
 			@RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
 			@RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
-			@RequestParam(value = "nl2sqlOnly", required = false) boolean nl2sqlOnly,
-			@RequestParam(value = "sessionId", required = false) String sessionId, HttpServletResponse response) {
+			@RequestParam(value = "nl2sqlOnly", required = false) boolean nl2sqlOnly, HttpServletResponse response) {
 		// Set SSE-related HTTP headers
 		response.setCharacterEncoding("UTF-8");
 		response.setContentType("text/event-stream");
@@ -68,7 +67,7 @@ public class GraphController {
 			.humanFeedback(humanFeedback)
 			.humanFeedbackContent(humanFeedbackContent)
 			.rejectedPlan(rejectedPlan)
-			.nl2sqlOnly(nl2sqlOnly).sessionId(sessionId)
+			.nl2sqlOnly(nl2sqlOnly)
 			.build();
 		graphService.graphStreamProcess(sink, request);
 
