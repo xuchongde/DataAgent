@@ -32,11 +32,15 @@
 以下是生成代码的模板，请根据具体需求填充逻辑：
 
 ```python
+import io
 import sys
 import json
 import traceback
 import pandas as pd
 
+# 修复 Windows 控制台编码问题
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 # 错误处理
 try:
     # 从stdin读取输入数据
@@ -94,11 +98,14 @@ except Exception:
 假设用户需求是“统计每个渠道的线索数量和转化率”，生成的代码可能如下：
 
 ```python
+import io
 import sys
 import json
 import traceback
 import pandas as pd
-
+# 修复 Windows 控制台编码问题
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 try:
     # 从stdin读取输入数据
     input_data = json.load(sys.stdin)
