@@ -26,6 +26,7 @@ import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
 import com.alibaba.cloud.ai.dataagent.entity.UserPromptConfig;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -38,7 +39,7 @@ import java.util.stream.Collectors;
 import org.springframework.ai.converter.BeanOutputConverter;
 
 import static com.alibaba.cloud.ai.dataagent.util.ReportTemplateUtil.cleanJsonExample;
-
+@Slf4j
 public class PromptHelper {
 
 	public static String buildMixSelectorPrompt(String evidence, String question, SchemaDTO schemaDTO) {
@@ -246,10 +247,10 @@ public class PromptHelper {
 	 * 构建查询处理提示词
 	 * @param multiTurn 多轮对话历史
 	 * @param latestQuery 最新用户输入
-	 * @param standaloneQuery 标准化查询（知识召回时用的查询语句）
+	 * @param rewriteQuery 标准化查询（知识召回时用的查询语句）
 	 * @return 查询处理提示词
 	 */
-	public static String buildQueryEnhancePrompt(String multiTurn, String latestQuery, String evidence,String standaloneQuery) {
+	public static String buildQueryEnhancePrompt(String multiTurn, String latestQuery, String evidence,String rewriteQuery) {
 		Map<String, Object> params = new HashMap<>();
 		params.put("multi_turn", multiTurn != null ? multiTurn : "(无)");
 		params.put("latest_query", latestQuery);
@@ -258,10 +259,10 @@ public class PromptHelper {
 		else
 			params.put("evidence", evidence);
 
-		if (StringUtils.isEmpty(standaloneQuery))
+		if (StringUtils.isEmpty(rewriteQuery))
 			params.put("rewriteQuery", "无");
 		else
-			params.put("rewriteQuery", standaloneQuery);
+			params.put("rewriteQuery", rewriteQuery);
 		params.put("current_time_info", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 		BeanOutputConverter<QueryEnhanceOutputDTO> beanOutputConverter = new BeanOutputConverter<>(
 				QueryEnhanceOutputDTO.class);
@@ -335,9 +336,10 @@ public class PromptHelper {
 		if(params==null || params.size()==0){
 			return;
 		}
+
 		params.keySet().forEach(key->{
 			Object value = params.get(key);
-			System.out.printf("key="+key+",value="+value);
+			log.info("key="+key+",value="+value);
 		});
 	}
 

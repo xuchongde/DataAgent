@@ -219,8 +219,8 @@ report-generator-plain
 END
 
 # 增强
-## 向量存储使用es
-
+## 向量存储使用es,参考MY_ES_CONFIG.md （完成）
+## 生成的sql或python代码有时不准确，尝试用编码模型
 
 
 

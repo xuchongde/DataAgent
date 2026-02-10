@@ -137,7 +137,7 @@ public class EvidenceRecallNode implements NodeAction {
 			if (retrievalResult.allDocuments().isEmpty()) {
 				log.debug("No evidence documents found for agent: {} with query: {}", agentId, standaloneQuery);
 				sink.tryEmitNext("未找到证据！\n");
-				return Map.of(EVIDENCE, "无");
+				return Map.of(EVIDENCE, "无",REWRITE_QUERY,standaloneQuery);
 			}
 
 			// 构建证据内容
@@ -148,7 +148,7 @@ public class EvidenceRecallNode implements NodeAction {
 			outputEvidenceContent(retrievalResult.allDocuments(), sink);
 
 			// 返回结果
-			return Map.of(EVIDENCE, evidence,REWRIT_EQUERY,standaloneQuery);
+			return Map.of(EVIDENCE, evidence,REWRITE_QUERY,standaloneQuery);
 		}
 		catch (Exception e) {
 			log.error("Error occurred while getting evidences", e);

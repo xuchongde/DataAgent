@@ -51,16 +51,17 @@ public class QueryEnhanceNode implements NodeAction {
 
 		// 获取用户输入
 		String userInput = StateUtil.getStringValue(state, INPUT_KEY);
-		//EvidenceRecallNode生成的查询
-		String standaloneQuery = StateUtil.getStringValue(state, REWRIT_EQUERY, "(无)");
 		log.info("User input for query enhance: {}", userInput);
+		//EvidenceRecallNode生成的查询
+		String rewriteQuery = StateUtil.getStringValue(state, REWRITE_QUERY, "(无)");
+		log.info("REWRITE_QUERY: {}", rewriteQuery);
 
 		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 		String multiTurn = StateUtil.getStringValue(state, MULTI_TURN_CONTEXT, "(无)");
 
 		// 构建查询处理提示
-		String prompt = PromptHelper.buildQueryEnhancePrompt(multiTurn, userInput, evidence,standaloneQuery);
-		log.debug("Built query enhance prompt as follows \n {} \n", prompt);
+		String prompt = PromptHelper.buildQueryEnhancePrompt(multiTurn, userInput, evidence,rewriteQuery);
+		log.info("Built query enhance prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行查询处理
 		Flux<ChatResponse> responseFlux = llmService.callUser(prompt);
