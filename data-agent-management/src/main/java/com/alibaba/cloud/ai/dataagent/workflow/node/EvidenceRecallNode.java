@@ -15,7 +15,9 @@
  */
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.IntentRecognitionOutputDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
 import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
@@ -23,10 +25,13 @@ import com.alibaba.cloud.ai.dataagent.dto.prompt.EvidenceQueryRewriteDTO;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
+import com.alibaba.cloud.ai.dataagent.prompt.PromptLoader;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatMessageService;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.util.*;
+import com.alibaba.cloud.ai.dataagent.workflow.tools.VehicleProfileParserTool;
+import com.alibaba.cloud.ai.dataagent.workflow.tools.VehicleQueryResponse;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -42,6 +47,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
@@ -59,6 +66,8 @@ public class EvidenceRecallNode implements NodeAction {
 	private final AgentKnowledgeMapper agentKnowledgeMapper;
 
 	private final ChatMessageService chatMessageService;
+
+	private final VehicleProfileParserTool vehicleProfileParserTool;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -90,6 +99,30 @@ public class EvidenceRecallNode implements NodeAction {
 				}
 			}
 		}
+
+		// 检查是否是车辆查询
+		Map<String, Object> newState = new HashMap<>();
+		boolean isVehicleQuery = isVehicleQuery(question);
+		// 1. 如果是车辆查询，调用工具解析
+		if (isVehicleQuery) {
+			try {
+				String toolResult = vehicleProfileParserTool.call(question);
+				VehicleQueryResponse parsedResult =
+						jsonParseUtil.tryConvertToObject(toolResult, VehicleQueryResponse.class);
+				if (parsedResult != null && parsedResult.getError() == null && parsedResult.getAmbiguity().length == 0) {
+					// 解析成功，更新状态
+					newState.put("vehicle_profile_criteria", parsedResult.getCriteria());
+					newState.put("vehicle_profile_ambiguity", parsedResult.getAmbiguity());
+					newState.put("toolName","vehicleProfileParserTool");
+				} else {
+					// 解析失败，记录错误
+					log.warn("vehicle_profile_error error {}",parsedResult != null ? parsedResult.getError() : "解析失败");
+				}
+			} catch (Exception e) {
+				log.error("vehicle_profile_error error,工具调用失败 {}",e.getMessage());
+			}
+		}
+
 		// 构建查询重写提示
 		// 不需要扩展为多个子查询，因为此时LLM不能理解不同公司的个性化业务知识，比如 PV,KMV等专业名词，扩展反而引入噪音。
 		String prompt = PromptHelper.buildEvidenceQueryRewritePrompt(multiTurn, question);
@@ -107,7 +140,7 @@ public class EvidenceRecallNode implements NodeAction {
 				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
 						ChatResponseUtil.createResponse("\n查询重写完成！")),
 				result -> {
-					resultMap.putAll(getEvidences(result, agentId, evidenceDisplaySink));
+					resultMap.putAll(getEvidences(result, agentId, evidenceDisplaySink,newState));
 					return resultMap;
 				});
 
@@ -117,7 +150,7 @@ public class EvidenceRecallNode implements NodeAction {
 		return Map.of(EVIDENCE, generator.concatWith(evidenceFlux));
 	}
 
-	private Map<String, Object> getEvidences(String llmOutput, String agentId, Sinks.Many<String> sink) {
+	private Map<String, Object> getEvidences(String llmOutput, String agentId, Sinks.Many<String> sink,Map<String, Object> newState) {
 		try {
 			String standaloneQuery = extractStandaloneQuery(llmOutput);
 
@@ -126,18 +159,18 @@ public class EvidenceRecallNode implements NodeAction {
 				sink.tryEmitNext("未能进行查询重写！\n");
 				return Map.of(EVIDENCE, "无");
 			}
-
 			// 输出重写后的查询
 			outputRewrittenQuery(standaloneQuery, sink);
 
 			// 获取业务知识和智能体知识文档
-			DocumentRetrievalResult retrievalResult = retrieveDocuments(agentId, standaloneQuery);
+			DocumentRetrievalResult retrievalResult = retrieveDocuments(agentId, standaloneQuery,newState);
+
 
 			// 检查是否有证据文档
 			if (retrievalResult.allDocuments().isEmpty()) {
 				log.debug("No evidence documents found for agent: {} with query: {}", agentId, standaloneQuery);
 				sink.tryEmitNext("未找到证据！\n");
-				return Map.of(EVIDENCE, "无",REWRITE_QUERY,standaloneQuery);
+				return Map.of(EVIDENCE, "无", REWRITE_QUERY, standaloneQuery);
 			}
 
 			// 构建证据内容
@@ -167,7 +200,7 @@ public class EvidenceRecallNode implements NodeAction {
 		sink.tryEmitNext("正在获取证据...");
 	}
 
-	private DocumentRetrievalResult retrieveDocuments(String agentId, String standaloneQuery) {
+	private DocumentRetrievalResult retrieveDocuments(String agentId, String standaloneQuery,Map<String, Object> toolData) {
 		// 获取业务知识文档
 		List<Document> businessTermDocuments = vectorStoreService
 			.getDocumentsForAgent(agentId, standaloneQuery, DocumentMetadataConstant.BUSINESS_TERM)
@@ -179,13 +212,42 @@ public class EvidenceRecallNode implements NodeAction {
 			.getDocumentsForAgent(agentId, standaloneQuery, DocumentMetadataConstant.AGENT_KNOWLEDGE)
 			.stream()
 			.toList();
-
+		//工具
+		Document toolDoc = null;
+		if(toolData!=null && toolData.size()>0){
+			// 3. 如果是车辆查询，用解析后的条件增强查询
+			Object o = toolData.get("vehicle_profile_criteria");
+			StringBuilder profileEvidence = new StringBuilder("");
+			if (o != null) {
+				Map<String,String> vechileMap = (Map<String, String>) o;
+				profileEvidence.append("车辆/车型/profile的配置信息为:");
+				if (vechileMap.containsKey("eseries_code") && StringUtils.isNotBlank(vechileMap.get("eseries_code"))) {
+					profileEvidence.append("eseries_code = ").append(vechileMap.get("eseries_code")).append(",");
+				}
+				if (vechileMap.containsKey("model_code") && StringUtils.isNotBlank(vechileMap.get("model_code"))) {
+					profileEvidence.append("model_code = ").append(vechileMap.get("model_code")).append(",");
+				}
+				if (vechileMap.containsKey("target_date") && StringUtils.isNotBlank(vechileMap.get("target_date"))) {
+					profileEvidence.append("target_date = ").append(vechileMap.get("target_date")).append(",");
+				}
+				if (vechileMap.containsKey("package_code") && StringUtils.isNotBlank(vechileMap.get("package_code"))) {
+					profileEvidence.append("package_code = ").append(vechileMap.get("package_code")).append(",");
+				}
+			}
+			// 创建新的 Document
+			String content = profileEvidence.toString();
+			Map<String, Object> metadata = Map.of("source", toolData.get("toolName"),"similarity_score", 0.8);
+			toolDoc = new Document(content, metadata);
+		}
 		// 合并所有证据文档
 		List<Document> allDocuments = new ArrayList<>();
 		if (!businessTermDocuments.isEmpty())
 			allDocuments.addAll(businessTermDocuments);
 		if (!agentKnowledgeDocuments.isEmpty())
 			allDocuments.addAll(agentKnowledgeDocuments);
+		if(toolDoc!=null){
+			allDocuments.add(toolDoc);
+		}
 
 		// 添加文档检索日志
 		log.info("Retrieved documents for agent {}: {} business term docs, {} agent knowledge docs, total {} docs",
@@ -377,6 +439,19 @@ public class EvidenceRecallNode implements NodeAction {
 			log.error("Failed to parse EvidenceQueryRewriteDTO from LLM response", e);
 		}
 		return null;
+	}
+
+	//新增方法:可以提取出去
+	private boolean isVehicleQuery(String query) {
+		// 检查是否包含车辆相关关键词
+		if (query.contains("车辆") || query.contains("车型") || query.contains("profile")) {
+			return true;
+		}
+
+		// 检查是否包含车辆代码模式
+		Pattern pattern = Pattern.compile("[A-Z]\\d{2,4}|\\d{4,8}|[A-Z]{2}\\d{2}");
+		Matcher matcher = pattern.matcher(query);
+		return matcher.find();
 	}
 
 }

@@ -220,7 +220,40 @@ END
 
 # 增强
 ## 向量存储使用es,参考MY_ES_CONFIG.md （完成）
-## 生成的sql或python代码有时不准确，尝试用编码模型
+## 生成的sql或python代码有时不准确，尝试用编码模型,采用qwen-max后，相对好点，但是复杂的查询，代码还是不准确
+如：查询2025年销售量总额最高和最低的产品，需要展示其销售总额，销售数量，产品名称和产品单价
+## 车辆profile识别
+如何根据用户的输入信息，判断是否需要优先识别车辆profile查询，如用户输入：查询profile F55 XU91 7HQ当前价格？
+需要模型识别：
+1.这是车型或车辆查询
+2.模型需要知道F55 XU91 7HQ对应的是什么意思，是车型表中的哪些字段
+3.模型需要返回如eseries_code:F55,model_code:XU91,package_code:7HQ类似信息（即字段，值对应关系）
+4.对应关系作为sql生成节点的依据，SqlGeneratNode节点sql的生成，有些需要依赖3的输入
+解决方式：
+1.新增tool，tool的返回作为附加到SqlGeneratNode的输入。SqlGeneratNode执行时，判断是车型相关查询并且有车型相关核心数据的输入时，调用tool
+结果不好
+2.基于rag（有业务知识模块，上传相关的知识库）+代码调整
+调整内容：
+2.1 意图识别，新增业务域
+2.2 创建业务规则文档（RAG 基础）business_domain_rules_vehicle.md
+```md
+# 车辆业务域规则
+## 业务描述
+车辆销售查询业务，包括产品系列、型号、包装规格和目标日期的查询
+## 字段映射规则
+| 源值模式 | 目标列 | 业务含义 | 示例 |
+|----------|--------|----------|------|
+| `[A-Z]\d{2}` | eseries_code | 产品系列代码 | F56, A12 |
+| `[A-Z]{2}\d{2}` | model_code | 产品型号代码 | XU91, AB12 |
+| `[A-Z]{2}\d{2}` | package_code | 包装规格代码 | ZA18, PK01 |
+| `\d{4}` | target_date | 目标日期(MMDD) | 0616, 1225 |
+
+## 必填字段
+- eseries_code (必须)
+- model_code (必须)
+```
+通过 DataAgent 管理后台上传此文档（/management/knowledge）(业务知识模块)。
+2.3 修改 SQL 生成节点（使用 RAG 检索）SqlGenerateNode
 
 
 
