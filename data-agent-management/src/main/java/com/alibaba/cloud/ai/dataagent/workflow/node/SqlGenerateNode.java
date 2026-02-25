@@ -134,7 +134,7 @@ public class SqlGenerateNode implements NodeAction {
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		String userQuery = StateUtil.getCanonicalQuery(state);
 		String dialect = StateUtil.getStringValue(state, DB_DIALECT_TYPE);
-
+		Map<String,Object> fieldValueMapping = StateUtil.getObjectValue(state, TOOL_FIELD_VALUE_MAPPING, Map.class);
 		SqlGenerationDTO sqlGenerationDTO = SqlGenerationDTO.builder()
 			.evidence(evidence)
 			.query(userQuery)
@@ -143,6 +143,7 @@ public class SqlGenerateNode implements NodeAction {
 			.exceptionMessage(errorMsg)
 			.executionDescription(executionDescription)
 			.dialect(dialect)
+				.fieldValueMapping(fieldValueMapping)
 			.build();
 
 		return nl2SqlService.generateSql(sqlGenerationDTO);

@@ -121,6 +121,19 @@ public class PromptHelper {
 		params.put("schema_info", schemaInfo);
 		params.put("evidence", sqlGenerationDTO.getEvidence());
 		params.put("execution_description", sqlGenerationDTO.getExecutionDescription());
+		//
+		Map<String, Object> fieldValueMapping = sqlGenerationDTO.getFieldValueMapping();
+		if(fieldValueMapping!=null && !fieldValueMapping.isEmpty()){
+			StringBuilder stringBuilder = new StringBuilder("");
+			fieldValueMapping.keySet().forEach(key->{
+				stringBuilder.append(key).append("=").append(fieldValueMapping.get(key)).append("\n");
+			});
+			params.put("field_value_mapping", stringBuilder);
+			log.info("prompt,tool data value,field_value_mapping:{}",stringBuilder);
+		}else{
+			log.info("prompt,tool data no value field_value_mapping,null");
+			params.put("field_value_mapping", "（无）");
+		}
 		return PromptConstant.getNewSqlGeneratorPromptTemplate().render(params);
 	}
 

@@ -5,24 +5,24 @@ import lombok.Data;
 import java.util.Map;
 
 public class VehicleQueryResponse {
-    private Map<String, String> criteria;
+    private Map<String, Object> criteria;
     private String[] ambiguity;
     private String error;
 
     public VehicleQueryResponse() {
     }
 
-    public VehicleQueryResponse(Map<String, String> criteria, String[] ambiguity, String error) {
+    public VehicleQueryResponse(Map<String, Object> criteria, String[] ambiguity, String error) {
         this.criteria = criteria;
         this.ambiguity = ambiguity;
         this.error = error;
     }
 
-    public Map<String, String> getCriteria() {
+    public Map<String, Object> getCriteria() {
         return criteria;
     }
 
-    public void setCriteria(Map<String, String> criteria) {
+    public void setCriteria(Map<String, Object> criteria) {
         this.criteria = criteria;
     }
 

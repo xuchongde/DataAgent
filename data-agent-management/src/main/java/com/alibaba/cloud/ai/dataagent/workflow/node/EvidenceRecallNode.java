@@ -30,6 +30,7 @@ import com.alibaba.cloud.ai.dataagent.service.chat.ChatMessageService;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.util.*;
+import com.alibaba.cloud.ai.dataagent.workflow.tools.ToolDataResponse;
 import com.alibaba.cloud.ai.dataagent.workflow.tools.VehicleProfileParserTool;
 import com.alibaba.cloud.ai.dataagent.workflow.tools.VehicleQueryResponse;
 import com.alibaba.cloud.ai.graph.GraphResponse;
@@ -101,7 +102,7 @@ public class EvidenceRecallNode implements NodeAction {
 		}
 
 		// 检查是否是车辆查询
-		Map<String, Object> newState = new HashMap<>();
+		ToolDataResponse toolDataResponse=null;
 		boolean isVehicleQuery = isVehicleQuery(question);
 		// 1. 如果是车辆查询，调用工具解析
 		if (isVehicleQuery) {
@@ -111,15 +112,14 @@ public class EvidenceRecallNode implements NodeAction {
 						jsonParseUtil.tryConvertToObject(toolResult, VehicleQueryResponse.class);
 				if (parsedResult != null && parsedResult.getError() == null && parsedResult.getAmbiguity().length == 0) {
 					// 解析成功，更新状态
-					newState.put("vehicle_profile_criteria", parsedResult.getCriteria());
-					newState.put("vehicle_profile_ambiguity", parsedResult.getAmbiguity());
-					newState.put("toolName","vehicleProfileParserTool");
+					log.info("vehicleProfileParserTool has value");
+					toolDataResponse = new ToolDataResponse(parsedResult.getCriteria(),parsedResult.getError(),"vehicleProfileParserTool");
 				} else {
 					// 解析失败，记录错误
 					log.warn("vehicle_profile_error error {}",parsedResult != null ? parsedResult.getError() : "解析失败");
 				}
 			} catch (Exception e) {
-				log.error("vehicle_profile_error error,工具调用失败 {}",e.getMessage());
+				log.error("vehicle_profile_error error,工具调用失败 {}",e);
 			}
 		}
 
@@ -133,6 +133,7 @@ public class EvidenceRecallNode implements NodeAction {
 		Sinks.Many<String> evidenceDisplaySink = Sinks.many().multicast().onBackpressureBuffer();
 
 		final Map<String, Object> resultMap = new HashMap<>();
+		ToolDataResponse finalToolDataResponse = toolDataResponse;
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGenerator(this.getClass(), state,
 				responseFlux,
 				Flux.just(ChatResponseUtil.createResponse("正在查询重写以更好召回evidence..."),
@@ -140,17 +141,22 @@ public class EvidenceRecallNode implements NodeAction {
 				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
 						ChatResponseUtil.createResponse("\n查询重写完成！")),
 				result -> {
-					resultMap.putAll(getEvidences(result, agentId, evidenceDisplaySink,newState));
+					resultMap.putAll(getEvidences(result, agentId, evidenceDisplaySink, finalToolDataResponse));
 					return resultMap;
 				});
 
 		Flux<GraphResponse<StreamingOutput>> evidenceFlux = FluxUtil.createStreamingGenerator(this.getClass(), state,
 				evidenceDisplaySink.asFlux().map(ChatResponseUtil::createPureResponse), Flux.empty(), Flux.empty(),
 				result -> resultMap);
-		return Map.of(EVIDENCE, generator.concatWith(evidenceFlux));
+
+		if(finalToolDataResponse!=null && finalToolDataResponse.getToolReturnData()!=null && StringUtils.isBlank(finalToolDataResponse.getToolError())){
+			return Map.of(EVIDENCE, generator.concatWith(evidenceFlux),TOOL_FIELD_VALUE_MAPPING,finalToolDataResponse.getToolReturnData());
+		} else {
+			return Map.of(EVIDENCE, generator.concatWith(evidenceFlux),TOOL_FIELD_VALUE_MAPPING,new HashMap<String,Object>());
+		}
 	}
 
-	private Map<String, Object> getEvidences(String llmOutput, String agentId, Sinks.Many<String> sink,Map<String, Object> newState) {
+	private Map<String, Object> getEvidences(String llmOutput, String agentId, Sinks.Many<String> sink,ToolDataResponse toolDataResponse) {
 		try {
 			String standaloneQuery = extractStandaloneQuery(llmOutput);
 
@@ -159,11 +165,15 @@ public class EvidenceRecallNode implements NodeAction {
 				sink.tryEmitNext("未能进行查询重写！\n");
 				return Map.of(EVIDENCE, "无");
 			}
+			//输出工具信息：
+			if(toolDataResponse!=null && toolDataResponse.getToolReturnData()!=null && !toolDataResponse.getToolReturnData().isEmpty()){
+				sink.tryEmitNext("调用工具:"+toolDataResponse.toolMsgShow()+"\n");
+			}
 			// 输出重写后的查询
 			outputRewrittenQuery(standaloneQuery, sink);
 
 			// 获取业务知识和智能体知识文档
-			DocumentRetrievalResult retrievalResult = retrieveDocuments(agentId, standaloneQuery,newState);
+			DocumentRetrievalResult retrievalResult = retrieveDocuments(agentId, standaloneQuery);
 
 
 			// 检查是否有证据文档
@@ -200,7 +210,7 @@ public class EvidenceRecallNode implements NodeAction {
 		sink.tryEmitNext("正在获取证据...");
 	}
 
-	private DocumentRetrievalResult retrieveDocuments(String agentId, String standaloneQuery,Map<String, Object> toolData) {
+	private DocumentRetrievalResult retrieveDocuments(String agentId, String standaloneQuery) {
 		// 获取业务知识文档
 		List<Document> businessTermDocuments = vectorStoreService
 			.getDocumentsForAgent(agentId, standaloneQuery, DocumentMetadataConstant.BUSINESS_TERM)
@@ -212,42 +222,13 @@ public class EvidenceRecallNode implements NodeAction {
 			.getDocumentsForAgent(agentId, standaloneQuery, DocumentMetadataConstant.AGENT_KNOWLEDGE)
 			.stream()
 			.toList();
-		//工具
-		Document toolDoc = null;
-		if(toolData!=null && toolData.size()>0){
-			// 3. 如果是车辆查询，用解析后的条件增强查询
-			Object o = toolData.get("vehicle_profile_criteria");
-			StringBuilder profileEvidence = new StringBuilder("");
-			if (o != null) {
-				Map<String,String> vechileMap = (Map<String, String>) o;
-				profileEvidence.append("车辆/车型/profile的配置信息为:");
-				if (vechileMap.containsKey("eseries_code") && StringUtils.isNotBlank(vechileMap.get("eseries_code"))) {
-					profileEvidence.append("eseries_code = ").append(vechileMap.get("eseries_code")).append(",");
-				}
-				if (vechileMap.containsKey("model_code") && StringUtils.isNotBlank(vechileMap.get("model_code"))) {
-					profileEvidence.append("model_code = ").append(vechileMap.get("model_code")).append(",");
-				}
-				if (vechileMap.containsKey("target_date") && StringUtils.isNotBlank(vechileMap.get("target_date"))) {
-					profileEvidence.append("target_date = ").append(vechileMap.get("target_date")).append(",");
-				}
-				if (vechileMap.containsKey("package_code") && StringUtils.isNotBlank(vechileMap.get("package_code"))) {
-					profileEvidence.append("package_code = ").append(vechileMap.get("package_code")).append(",");
-				}
-			}
-			// 创建新的 Document
-			String content = profileEvidence.toString();
-			Map<String, Object> metadata = Map.of("source", toolData.get("toolName"),"similarity_score", 0.8);
-			toolDoc = new Document(content, metadata);
-		}
+
 		// 合并所有证据文档
 		List<Document> allDocuments = new ArrayList<>();
 		if (!businessTermDocuments.isEmpty())
 			allDocuments.addAll(businessTermDocuments);
 		if (!agentKnowledgeDocuments.isEmpty())
 			allDocuments.addAll(agentKnowledgeDocuments);
-		if(toolDoc!=null){
-			allDocuments.add(toolDoc);
-		}
 
 		// 添加文档检索日志
 		log.info("Retrieved documents for agent {}: {} business term docs, {} agent knowledge docs, total {} docs",

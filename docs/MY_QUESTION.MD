@@ -232,7 +232,7 @@ END
 解决方式：
 1.新增tool，tool的返回作为附加到SqlGeneratNode的输入。SqlGeneratNode执行时，判断是车型相关查询并且有车型相关核心数据的输入时，调用tool
 结果不好
-2.基于rag（有业务知识模块，上传相关的知识库）+代码调整
+2.基于rag（有业务知识模块，上传相关的知识库）+代码调整(代码改动量大，不通用，效果也一般)
 调整内容：
 2.1 意图识别，新增业务域
 2.2 创建业务规则文档（RAG 基础）business_domain_rules_vehicle.md
@@ -254,6 +254,12 @@ END
 ```
 通过 DataAgent 管理后台上传此文档（/management/knowledge）(业务知识模块)。
 2.3 修改 SQL 生成节点（使用 RAG 检索）SqlGenerateNode
+3.新增tool，在EvidenceRecallNode节点中，新增tool，（可以在agent的配置中，新增tool工具的配置）
+3.1 EvidenceRecallNode，调用tool，该tool会先判断是否车辆查询（关键字和正则表达），如果是，工具会调用模型识别对应的字段
+business_domain_rules_vehicle.md，返回eseries_code=xx，model_code=xx,并把结果暂时存储到graph的运行数据中TOOL_FIELD_VALUE_MAPPING
+3.2 sql生成节点，取TOOL_FIELD_VALUE_MAPPING值放入提示词中，new-sql-generate.txt修改提示词，新增## 5. 已识别的结构化参数（参考），告诉模型如果有值并且可以作为where条件时，使用该条件
+3.3 在可行性评估节点FeasibilityAssessmentNode中，加入TOOL_FIELD_VALUE_MAPPING值，优先级高于Evidence，让其进入可行性评估
+提示词+代码需要调整（todo）
 
 
 

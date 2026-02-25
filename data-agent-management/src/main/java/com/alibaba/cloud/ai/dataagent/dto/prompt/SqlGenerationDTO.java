@@ -20,6 +20,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.Map;
+
 @AllArgsConstructor
 @Builder
 @Data
@@ -38,5 +40,7 @@ public class SqlGenerationDTO {
 	private String executionDescription;
 
 	private String dialect;
+
+	private Map<String,Object> fieldValueMapping;
 
 }

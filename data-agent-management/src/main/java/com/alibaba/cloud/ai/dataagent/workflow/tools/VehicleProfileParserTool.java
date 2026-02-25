@@ -64,8 +64,6 @@ public class VehicleProfileParserTool implements ToolCallback {
 
     private String buildPrompt(String userInput, String rulesContent) {
         return String.format("""
-            你是一个车辆业务领域的解析专家，负责将用户查询中的信息映射到数据库字段。
-            请根据以下业务规则将用户输入中的车辆信息转换为结构化的查询条件：
             %s
             用户查询: %s
             请严格按以下JSON格式输出：
@@ -82,7 +80,6 @@ public class VehicleProfileParserTool implements ToolCallback {
             注意：
             1. 只输出JSON，不要包含任何其他文本
             2. 如果有多个可能的匹配，优先使用最符合规则的
-            3. 必填字段必须包含 eseries_code 和 model_code
             """, rulesContent, userInput);
     }
 
