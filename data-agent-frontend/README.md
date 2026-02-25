@@ -52,6 +52,7 @@ yarn install
 ```bash
 # 使用 npm
 npm run dev
+或npx pnpm run dev
 
 # 或使用 yarn
 yarn dev
@@ -228,16 +229,17 @@ server {
 ### 常见问题
 
 1. **依赖安装失败**
+
    - 检查 Node.js 版本
    - 清除 npm 缓存：`npm cache clean --force`
    - 删除 node_modules 重新安装
-
 2. **后端API连接失败**
+
    - 检查后端服务是否启动
    - 确认 proxy 配置是否正确
    - 检查防火墙和网络设置
-
 3. **构建失败**
+
    - 检查代码语法错误
    - 确认所有依赖都已安装
    - 查看详细错误信息

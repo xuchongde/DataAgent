@@ -16,6 +16,8 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
+import com.alibaba.cloud.ai.dataagent.workflow.tools.DataAgentToolUtil;
+import com.alibaba.cloud.ai.dataagent.workflow.tools.ToolDataResponse;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -30,6 +32,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
@@ -55,9 +58,11 @@ public class FeasibilityAssessmentNode implements NodeAction {
 
 		String multiTurn = StateUtil.getStringValue(state, MULTI_TURN_CONTEXT, "(无)");
 
+		List<ToolDataResponse> toolData = StateUtil.getObjectValue(state, TOOL_FIELD_VALUE_MAPPING, List.class);
+		String fieldValueMapping = DataAgentToolUtil.toolDataMsg(toolData);
 		// 构建可行性评估提示词
 		String prompt = PromptHelper.buildFeasibilityAssessmentPrompt(canonicalQuery, recalledSchema, evidence,
-				multiTurn);
+				multiTurn,fieldValueMapping);
 		log.debug("Built feasibility assessment prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行可行性评估

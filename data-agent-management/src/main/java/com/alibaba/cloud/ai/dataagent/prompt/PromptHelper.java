@@ -16,27 +16,24 @@
 package com.alibaba.cloud.ai.dataagent.prompt;
 
 import com.alibaba.cloud.ai.dataagent.bo.schema.DisplayStyleBO;
-import com.alibaba.cloud.ai.dataagent.dto.prompt.EvidenceQueryRewriteDTO;
-import com.alibaba.cloud.ai.dataagent.dto.prompt.IntentRecognitionOutputDTO;
-import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
-import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
-import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.*;
 import com.alibaba.cloud.ai.dataagent.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
 import com.alibaba.cloud.ai.dataagent.entity.UserPromptConfig;
+import com.alibaba.cloud.ai.dataagent.workflow.tools.DataAgentToolUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.ai.converter.BeanOutputConverter;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
-import org.springframework.ai.converter.BeanOutputConverter;
 
 import static com.alibaba.cloud.ai.dataagent.util.ReportTemplateUtil.cleanJsonExample;
 @Slf4j
@@ -122,18 +119,9 @@ public class PromptHelper {
 		params.put("evidence", sqlGenerationDTO.getEvidence());
 		params.put("execution_description", sqlGenerationDTO.getExecutionDescription());
 		//
-		Map<String, Object> fieldValueMapping = sqlGenerationDTO.getFieldValueMapping();
-		if(fieldValueMapping!=null && !fieldValueMapping.isEmpty()){
-			StringBuilder stringBuilder = new StringBuilder("");
-			fieldValueMapping.keySet().forEach(key->{
-				stringBuilder.append(key).append("=").append(fieldValueMapping.get(key)).append("\n");
-			});
-			params.put("field_value_mapping", stringBuilder);
-			log.info("prompt,tool data value,field_value_mapping:{}",stringBuilder);
-		}else{
-			log.info("prompt,tool data no value field_value_mapping,null");
-			params.put("field_value_mapping", "（无）");
-		}
+		String fieldValueMapping = DataAgentToolUtil.toolDataMsg(sqlGenerationDTO.getFieldValueMapping());
+		log.info("prompt,tool data value,field_value_mapping:{}",fieldValueMapping);
+		params.put("field_value_mapping", fieldValueMapping);
 		return PromptConstant.getNewSqlGeneratorPromptTemplate().render(params);
 	}
 
@@ -297,16 +285,18 @@ public class PromptHelper {
 	 * @param recalledSchema 召回的数据库Schema
 	 * @param evidence 参考信息
 	 * @param multiTurn 多轮对话历史
+	 * @param fieldValueMapping 字段名和值对应关系
 	 * @return 可行性评估提示词
 	 */
 	public static String buildFeasibilityAssessmentPrompt(String canonicalQuery, SchemaDTO recalledSchema,
-			String evidence, String multiTurn) {
+			String evidence, String multiTurn,String fieldValueMapping) {
 		Map<String, Object> params = new HashMap<>();
 		String schemaInfo = buildMixMacSqlDbPrompt(recalledSchema, true);
 		params.put("canonical_query", canonicalQuery != null ? canonicalQuery : "");
 		params.put("recalled_schema", schemaInfo);
 		params.put("evidence", evidence != null ? evidence : "");
 		params.put("multi_turn", multiTurn != null ? multiTurn : "(无)");
+		params.put("field_value_mapping", fieldValueMapping);
 		return PromptConstant.getFeasibilityAssessmentPromptTemplate().render(params);
 	}
 

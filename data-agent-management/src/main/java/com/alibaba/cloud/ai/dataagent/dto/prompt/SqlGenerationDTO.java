@@ -16,10 +16,12 @@
 package com.alibaba.cloud.ai.dataagent.dto.prompt;
 
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
+import com.alibaba.cloud.ai.dataagent.workflow.tools.ToolDataResponse;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
 import java.util.Map;
 
 @AllArgsConstructor
@@ -41,6 +43,6 @@ public class SqlGenerationDTO {
 
 	private String dialect;
 
-	private Map<String,Object> fieldValueMapping;
+	private List<ToolDataResponse> fieldValueMapping;
 
 }

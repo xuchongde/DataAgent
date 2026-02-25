@@ -15,24 +15,22 @@
  */
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
-import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
-import com.alibaba.cloud.ai.dataagent.dto.prompt.IntentRecognitionOutputDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.EvidenceQueryRewriteDTO;
+import com.alibaba.cloud.ai.dataagent.entity.AgentExtTool;
+import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
 import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
-import com.alibaba.cloud.ai.dataagent.dto.prompt.EvidenceQueryRewriteDTO;
-import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
+import com.alibaba.cloud.ai.dataagent.mapper.AgentExtToolMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
-import com.alibaba.cloud.ai.dataagent.prompt.PromptLoader;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatMessageService;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.util.*;
+import com.alibaba.cloud.ai.dataagent.workflow.tools.DataAgentExtTool;
 import com.alibaba.cloud.ai.dataagent.workflow.tools.ToolDataResponse;
-import com.alibaba.cloud.ai.dataagent.workflow.tools.VehicleProfileParserTool;
-import com.alibaba.cloud.ai.dataagent.workflow.tools.VehicleQueryResponse;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -42,14 +40,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
@@ -68,7 +65,9 @@ public class EvidenceRecallNode implements NodeAction {
 
 	private final ChatMessageService chatMessageService;
 
-	private final VehicleProfileParserTool vehicleProfileParserTool;
+	private final AgentExtToolMapper agentExtToolMapper;
+
+	private final ApplicationContext applicationContext;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -100,28 +99,7 @@ public class EvidenceRecallNode implements NodeAction {
 				}
 			}
 		}
-
-		// 检查是否是车辆查询
-		ToolDataResponse toolDataResponse=null;
-		boolean isVehicleQuery = isVehicleQuery(question);
-		// 1. 如果是车辆查询，调用工具解析
-		if (isVehicleQuery) {
-			try {
-				String toolResult = vehicleProfileParserTool.call(question);
-				VehicleQueryResponse parsedResult =
-						jsonParseUtil.tryConvertToObject(toolResult, VehicleQueryResponse.class);
-				if (parsedResult != null && parsedResult.getError() == null && parsedResult.getAmbiguity().length == 0) {
-					// 解析成功，更新状态
-					log.info("vehicleProfileParserTool has value");
-					toolDataResponse = new ToolDataResponse(parsedResult.getCriteria(),parsedResult.getError(),"vehicleProfileParserTool");
-				} else {
-					// 解析失败，记录错误
-					log.warn("vehicle_profile_error error {}",parsedResult != null ? parsedResult.getError() : "解析失败");
-				}
-			} catch (Exception e) {
-				log.error("vehicle_profile_error error,工具调用失败 {}",e);
-			}
-		}
+		List<ToolDataResponse> toolData = callTools(agentId, state, question);
 
 		// 构建查询重写提示
 		// 不需要扩展为多个子查询，因为此时LLM不能理解不同公司的个性化业务知识，比如 PV,KMV等专业名词，扩展反而引入噪音。
@@ -133,7 +111,6 @@ public class EvidenceRecallNode implements NodeAction {
 		Sinks.Many<String> evidenceDisplaySink = Sinks.many().multicast().onBackpressureBuffer();
 
 		final Map<String, Object> resultMap = new HashMap<>();
-		ToolDataResponse finalToolDataResponse = toolDataResponse;
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGenerator(this.getClass(), state,
 				responseFlux,
 				Flux.just(ChatResponseUtil.createResponse("正在查询重写以更好召回evidence..."),
@@ -141,7 +118,7 @@ public class EvidenceRecallNode implements NodeAction {
 				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
 						ChatResponseUtil.createResponse("\n查询重写完成！")),
 				result -> {
-					resultMap.putAll(getEvidences(result, agentId, evidenceDisplaySink, finalToolDataResponse));
+					resultMap.putAll(getEvidences(result, agentId, evidenceDisplaySink, toolData));
 					return resultMap;
 				});
 
@@ -149,14 +126,14 @@ public class EvidenceRecallNode implements NodeAction {
 				evidenceDisplaySink.asFlux().map(ChatResponseUtil::createPureResponse), Flux.empty(), Flux.empty(),
 				result -> resultMap);
 
-		if(finalToolDataResponse!=null && finalToolDataResponse.getToolReturnData()!=null && StringUtils.isBlank(finalToolDataResponse.getToolError())){
-			return Map.of(EVIDENCE, generator.concatWith(evidenceFlux),TOOL_FIELD_VALUE_MAPPING,finalToolDataResponse.getToolReturnData());
+		if(toolData!=null && toolData.size()>0){
+			return Map.of(EVIDENCE, generator.concatWith(evidenceFlux),TOOL_FIELD_VALUE_MAPPING,toolData);
 		} else {
-			return Map.of(EVIDENCE, generator.concatWith(evidenceFlux),TOOL_FIELD_VALUE_MAPPING,new HashMap<String,Object>());
+			return Map.of(EVIDENCE, generator.concatWith(evidenceFlux),TOOL_FIELD_VALUE_MAPPING,new ArrayList<>());
 		}
 	}
 
-	private Map<String, Object> getEvidences(String llmOutput, String agentId, Sinks.Many<String> sink,ToolDataResponse toolDataResponse) {
+	private Map<String, Object> getEvidences(String llmOutput, String agentId, Sinks.Many<String> sink,List<ToolDataResponse> toolDataResponses) {
 		try {
 			String standaloneQuery = extractStandaloneQuery(llmOutput);
 
@@ -166,8 +143,13 @@ public class EvidenceRecallNode implements NodeAction {
 				return Map.of(EVIDENCE, "无");
 			}
 			//输出工具信息：
-			if(toolDataResponse!=null && toolDataResponse.getToolReturnData()!=null && !toolDataResponse.getToolReturnData().isEmpty()){
-				sink.tryEmitNext("调用工具:"+toolDataResponse.toolMsgShow()+"\n");
+			if(null!=toolDataResponses && !toolDataResponses.isEmpty()){
+				for(ToolDataResponse tool : toolDataResponses){
+					if(Objects.isNull(tool)){
+						continue;
+					}
+					sink.tryEmitNext("调用工具:"+tool.getToolName()+tool.toolMsgShow()+"\n");
+				}
 			}
 			// 输出重写后的查询
 			outputRewrittenQuery(standaloneQuery, sink);
@@ -422,17 +404,27 @@ public class EvidenceRecallNode implements NodeAction {
 		return null;
 	}
 
-	//新增方法:可以提取出去
-	private boolean isVehicleQuery(String query) {
-		// 检查是否包含车辆相关关键词
-		if (query.contains("车辆") || query.contains("车型") || query.contains("profile")) {
-			return true;
+	private List<ToolDataResponse> callTools(String agentId,OverAllState state,String question){
+		List<ToolDataResponse> toolResDatas=new ArrayList<>();
+		List<AgentExtTool> agentExtTools = agentExtToolMapper.selectByAgentId(Long.valueOf(agentId));
+		if(agentExtTools==null || agentExtTools.isEmpty()){
+			return toolResDatas;
 		}
-
-		// 检查是否包含车辆代码模式
-		Pattern pattern = Pattern.compile("[A-Z]\\d{2,4}|\\d{4,8}|[A-Z]{2}\\d{2}");
-		Matcher matcher = pattern.matcher(query);
-		return matcher.find();
+		for(AgentExtTool extTool : agentExtTools){
+			if(null == extTool || StringUtils.isBlank(extTool.getBeanId())){
+				continue;
+			}
+			DataAgentExtTool bean = applicationContext.getBean(extTool.getBeanId(), DataAgentExtTool.class);
+			if(null!=bean){
+				boolean needExe= bean.needExecute(state, question);
+				if(needExe){
+					ToolDataResponse retData = bean.toolData(state, question);
+					if(null != retData){
+						toolResDatas.add(retData);
+					}
+				}
+			}
+		}
+		return toolResDatas;
 	}
-
 }

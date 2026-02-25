@@ -1,6 +1,4 @@
-package com.alibaba.cloud.ai.dataagent.workflow.tools;
-
-import lombok.Data;
+package com.alibaba.cloud.ai.dataagent.workflow.tools.vehicle;
 
 import java.util.Map;
 

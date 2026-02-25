@@ -260,6 +260,10 @@ business_domain_rules_vehicle.md，返回eseries_code=xx，model_code=xx,并把�
 3.2 sql生成节点，取TOOL_FIELD_VALUE_MAPPING值放入提示词中，new-sql-generate.txt修改提示词，新增## 5. 已识别的结构化参数（参考），告诉模型如果有值并且可以作为where条件时，使用该条件
 3.3 在可行性评估节点FeasibilityAssessmentNode中，加入TOOL_FIELD_VALUE_MAPPING值，优先级高于Evidence，让其进入可行性评估
 提示词+代码需要调整（todo）
+## 扩展，添加agent tool表，配置该agent可以使用的tool（todo）
+1.使用时机：EvidenceRecallNode调用，把tool的结果写入TOOL_FIELD_VALUE_MAPPING
+2.FeasibilityAssessmentNode节点获取TOOL_FIELD_VALUE_MAPPING值，给模型参考，作为可行性评估的额外条件（可能没有）
+3.SqlGenerateNode节点中获取TOOL_FIELD_VALUE_MAPPING值，给模型参考，作为生成sql的提示
 
 
 
