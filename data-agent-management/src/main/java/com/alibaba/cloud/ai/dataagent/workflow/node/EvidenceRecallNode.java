@@ -420,6 +420,7 @@ public class EvidenceRecallNode implements NodeAction {
 				if(needExe){
 					ToolDataResponse retData = bean.toolData(state, question);
 					if(null != retData){
+						retData.setToolName(extTool.getToolName());
 						toolResDatas.add(retData);
 					}
 				}

@@ -55,7 +55,6 @@ public class VehicleProfileParserImpl implements DataAgentExtTool {
         ToolDataResponse toolResponse = new ToolDataResponse();
         toolResponse.setToolError(response.getError());
         toolResponse.setToolReturnData(response.getCriteria());
-        toolResponse.setToolName("vehicleProfileParserImpl");
         return toolResponse;
     }
 

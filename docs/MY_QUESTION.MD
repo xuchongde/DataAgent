@@ -252,6 +252,9 @@ END
 - eseries_code (必须)
 - model_code (必须)
 ```
+如果用模型分析车辆profile，不要给模型正则表达，用大白话说清楚更好
+如果自己写规则，则正则表达或规则编码更好
+
 通过 DataAgent 管理后台上传此文档（/management/knowledge）(业务知识模块)。
 2.3 修改 SQL 生成节点（使用 RAG 检索）SqlGenerateNode
 3.新增tool，在EvidenceRecallNode节点中，新增tool，（可以在agent的配置中，新增tool工具的配置）
@@ -259,11 +262,15 @@ END
 business_domain_rules_vehicle.md，返回eseries_code=xx，model_code=xx,并把结果暂时存储到graph的运行数据中TOOL_FIELD_VALUE_MAPPING
 3.2 sql生成节点，取TOOL_FIELD_VALUE_MAPPING值放入提示词中，new-sql-generate.txt修改提示词，新增## 5. 已识别的结构化参数（参考），告诉模型如果有值并且可以作为where条件时，使用该条件
 3.3 在可行性评估节点FeasibilityAssessmentNode中，加入TOOL_FIELD_VALUE_MAPPING值，优先级高于Evidence，让其进入可行性评估
-提示词+代码需要调整（todo）
-## 扩展，添加agent tool表，配置该agent可以使用的tool（todo）
+提示词+代码需要调整（todo）20260225完成
+## 扩展，添加agent tool表，配置该agent可以使用的tool（todo）20260225完成
 1.使用时机：EvidenceRecallNode调用，把tool的结果写入TOOL_FIELD_VALUE_MAPPING
 2.FeasibilityAssessmentNode节点获取TOOL_FIELD_VALUE_MAPPING值，给模型参考，作为可行性评估的额外条件（可能没有）
 3.SqlGenerateNode节点中获取TOOL_FIELD_VALUE_MAPPING值，给模型参考，作为生成sql的提示
+## 扩展，todo
+### 报告另存，编辑保存和分享，把生成的Markdown内容存储到db中，然后创建人可以编辑另存后的报告（修改md内容并预览），把另存或编辑后的报告分享给其他用户
+### 当前数据只支持关系数据库方式，支持上传excel/csv数据源方式（或混合）难
+
 
 
 
