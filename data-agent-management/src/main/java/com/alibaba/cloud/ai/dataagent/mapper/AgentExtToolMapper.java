@@ -16,7 +16,6 @@
 package com.alibaba.cloud.ai.dataagent.mapper;
 
 import com.alibaba.cloud.ai.dataagent.entity.AgentExtTool;
-import com.alibaba.cloud.ai.dataagent.entity.AgentPresetQuestion;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;

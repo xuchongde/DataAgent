@@ -21,13 +21,12 @@ import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.BusinessKnowledgeMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -237,6 +236,70 @@ public class DynamicFilterService {
 
 		// 3. TableName 条件
 		conditions.add(b.in(DocumentMetadataConstant.TABLE_NAME, upstreamTableNames.toArray()).build());
+
+		return combineWithAnd(conditions);
+	}
+
+	public Filter.Expression buildFilterExpressionForMap(String agentId,String vectorType,Map<String,Object> map) {
+		if (map == null || map.isEmpty()) {
+			log.warn("buildFilterExpressionForMap map is empty");
+			return null;
+		}
+
+		FilterExpressionBuilder b = new FilterExpressionBuilder();
+		List<Filter.Expression> conditions = new ArrayList<>();
+		// 必须条件
+		conditions.add(b.eq(Constant.AGENT_ID, agentId).build());
+		conditions.add(b.eq(DocumentMetadataConstant.VECTOR_TYPE, vectorType).build());
+		switch (vectorType) {
+
+			case DocumentMetadataConstant.AGENT_KNOWLEDGE:
+				// 场景 A: 知识库文档 -> 需要查 MySQL 获取启用状态
+				List<Integer> validIds = agentKnowledgeMapper.selectRecalledKnowledgeIds(Integer.valueOf(agentId));
+
+				if (validIds.isEmpty()) {
+					log.warn("Agent {} has no recalled knowledge documents. Returning empty filter signal.", agentId);
+					return null;
+				}
+				else {
+					// 加入 ID 过滤
+					conditions.add(b.in(DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID, validIds.toArray()).build());
+				}
+				break;
+
+			case DocumentMetadataConstant.BUSINESS_TERM:
+				// 场景 B: 业务知识 -> 查 business_knowledge 表的需要召回的
+				List<Long> recalledBusinessKnowledgeIds = businessKnowledgeMapper
+						.selectRecalledKnowledgeIds(Long.valueOf(agentId));
+
+				if (recalledBusinessKnowledgeIds.isEmpty()) {
+					log.warn("Agent {} has no recalled business terms. Returning empty filter signal.", agentId);
+					return null;
+				}
+				else {
+					// 添加 ID 过滤
+					conditions
+							.add(b.in(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, recalledBusinessKnowledgeIds.toArray())
+									.build());
+				}
+				break;
+
+			default:
+				// 其他类型，默认只用 agentId + vectorType 过滤，不做额外处理
+				log.debug("Using default filter for type: {}", vectorType);
+				break;
+		}
+		Set<String> keys = map.keySet();
+		for(String key : keys){
+			if(StringUtils.isBlank(key)){
+				continue;
+			}
+			Object o = map.get(key);
+			if(Objects.isNull(o)){
+				continue;
+			}
+			conditions.add(b.eq(key, o.toString()).build());
+		}
 
 		return combineWithAnd(conditions);
 	}

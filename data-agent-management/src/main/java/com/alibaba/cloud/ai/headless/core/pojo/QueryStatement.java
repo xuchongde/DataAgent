@@ -1,0 +1,52 @@
+/*
+ * Copyright 2026 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.cloud.ai.headless.core.pojo;
+
+import com.alibaba.cloud.ai.headless.common.pojo.User;
+import com.alibaba.cloud.ai.headless.api.pojo.response.QueryState;
+import com.alibaba.cloud.ai.headless.api.pojo.response.SemanticSchemaResp;
+import lombok.Data;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Triple;
+
+@Data
+public class QueryStatement {
+
+    private Long dataSetId;
+    private String dataSetName;
+    private String sql;
+    private String errMsg;
+    private StructQuery structQuery;
+    private SqlQuery sqlQuery;
+    private OntologyQuery ontologyQuery;
+    private QueryState status = QueryState.SUCCESS;
+    private Boolean isS2SQL = false;
+    private Boolean enableOptimize = true;
+    private Triple<String, String, String> minMaxTime;
+    private Ontology ontology;
+    private SemanticSchemaResp semanticSchema;
+    private Integer limit = 1000;
+    private Boolean isTranslated = false;
+    private User user;
+
+    public boolean isOk() {
+        return StringUtils.isBlank(errMsg) && StringUtils.isNotBlank(sql);
+    }
+
+    public boolean isTranslated() {
+        return isTranslated != null && isTranslated && isOk();
+    }
+}

@@ -66,7 +66,8 @@
           router.currentRoute.value.name === 'AgentList' ||
           router.currentRoute.value.name === 'AgentDetail' ||
           router.currentRoute.value.name === 'AgentCreate' ||
-          router.currentRoute.value.name === 'AgentRun'
+          router.currentRoute.value.name === 'AgentRun' ||
+          router.currentRoute.value.name === 'ChatRun'
         );
       };
 

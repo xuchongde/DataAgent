@@ -19,6 +19,8 @@ import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
+import java.time.Duration;
+
 public interface LlmService {
 
 	Flux<ChatResponse> call(String system, String user);
@@ -36,6 +38,32 @@ public interface LlmService {
 
 	default Flux<String> toStringFlux(Flux<ChatResponse> responseFlux) {
 		return responseFlux.map(ChatResponseUtil::getText);
+	}
+
+	/**
+	 * 接收流式数据并转换成string
+	 * @param chatResponseFlux
+	 * @return
+	 */
+	default String collectFluxToStringSafe(Flux<ChatResponse> chatResponseFlux) {
+		try {
+			return chatResponseFlux
+					.map(response -> {
+						if (response.getResult() != null && response.getResult().getOutput() != null) {
+							return response.getResult().getOutput().getText();
+						}
+						return "";
+					})
+					.collectList()
+					.timeout(Duration.ofSeconds(60)) // 设置 60 秒超时，防止 LLM 卡死
+					.blockOptional() // 使用 blockOptional 避免直接抛异常，返回 Optional
+					.map(list -> list.stream().collect(java.util.stream.Collectors.joining()))
+					.orElse(""); // 如果超时或为空，返回空字符串
+
+		} catch (Exception e) {
+			// 记录日志
+			throw new RuntimeException("LLM stream processing failed", e);
+		}
 	}
 
 }

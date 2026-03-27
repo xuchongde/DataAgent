@@ -51,5 +51,10 @@ public final class DocumentMetadataConstant {
 
 	// businessTermId
 	public static final String DB_BUSINESS_TERM_ID = "businessTermId";
+	/**
+	 * rag 关联的对应db id
+	 */
+	public static final String REF_DB_ID="refDbId";
 
+	public static final String VECTOR_TYPE_EXEMPLAR="exemplar";
 }

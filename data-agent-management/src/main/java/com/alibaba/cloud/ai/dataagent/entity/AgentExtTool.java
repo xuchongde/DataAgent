@@ -15,8 +15,6 @@
  */
 package com.alibaba.cloud.ai.dataagent.entity;
 
-import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
-import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;

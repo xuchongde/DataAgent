@@ -18,6 +18,8 @@ package com.alibaba.cloud.ai.dataagent.dto.search;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.Map;
+
 @Data
 @Builder
 public class AgentSearchRequest implements java.io.Serializable {
@@ -35,5 +37,7 @@ public class AgentSearchRequest implements java.io.Serializable {
 	private String query;
 
 	private Integer topK;
+
+	private Map<String, Object> filterCondition;
 
 }

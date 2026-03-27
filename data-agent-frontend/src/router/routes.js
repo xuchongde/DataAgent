@@ -61,6 +61,16 @@ const routes = [
     },
   },
 
+  {
+    path: '/chat/:id/run',
+    name: 'ChatRun',
+    component: () => import('@/views/ChatRun.vue'),
+    meta: {
+      title: '运行智能体2',
+      module: 'agent',
+    },
+  },
+
   // 模型配置模块
   {
     path: '/model-config',
